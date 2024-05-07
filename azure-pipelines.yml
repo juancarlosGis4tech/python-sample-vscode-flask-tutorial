@@ -1,36 +1,40 @@
-# Python package
-# Create and test a Python package on multiple Python versions.
-# Add steps that analyze code, save the dist with the build record, publish to a PyPI-compatible index, and more:
-# https://docs.microsoft.com/azure/devops/pipelines/languages/python
+trigger: none
 
-trigger:
-- main
+schedules:
+- cron: "0 22 * * *"
+  displayName: 'Shutdown Schedule'
+  branches:
+    include:
+    - main
+  always: true
+- cron: "0 7 * * *"
+  displayName: 'Startup Schedule'
+  branches:
+    include:
+    - main
+  always: true
 
-pool:
-  vmImage: ubuntu-latest
-strategy:
-  matrix:
-    Python27:
-      python.version: '2.7'
-    Python35:
-      python.version: '3.5'
-    Python36:
-      python.version: '3.6'
-    Python37:
-      python.version: '3.7'
+jobs:
+- job: Shutdown
+  condition: and(succeeded(), eq(variables['Build.Reason'], 'Schedule'), eq(variables['Build.CronSchedule.DisplayName'], 'Shutdown Schedule'))
+  pool:
+    vmImage: 'windows-latest'
+  steps:
+  - task: AzurePowerShell@5
+    inputs:
+      azureSubscription: 'fb539a3e-caf4-482b-88d7-5af5d494c42e'
+      ScriptType: 'InlineScript'
+      Inline: 'Stop-AzContainerApp -Name geoserver -ResourceGroupName visor_dipgra -SubscriptionId fb539a3e-caf4-482b-88d7-5af5d494c42e'
+      azurePowerShellVersion: 'LatestVersion'
 
-steps:
-- task: UsePythonVersion@0
-  inputs:
-    versionSpec: '$(python.version)'
-  displayName: 'Use Python $(python.version)'
-
-- script: |
-    python -m pip install --upgrade pip
-    pip install -r requirements.txt
-  displayName: 'Install dependencies'
-
-- script: |
-    pip install pytest pytest-azurepipelines
-    pytest
-  displayName: 'pytest'
+- job: Startup
+  condition: and(succeeded(), eq(variables['Build.Reason'], 'Schedule'), eq(variables['Build.CronSchedule.DisplayName'], 'Startup Schedule'))
+  pool:
+    vmImage: 'windows-latest'
+  steps:
+  - task: AzurePowerShell@5
+    inputs:
+      azureSubscription: 'fb539a3e-caf4-482b-88d7-5af5d494c42e'
+      ScriptType: 'InlineScript'
+      Inline: 'Start-AzContainerApp -Name geoserver -ResourceGroupName visor_dipgra -SubscriptionId fb539a3e-caf4-482b-88d7-5af5d494c42e'
+      azurePowerShellVersion: 'LatestVersion'
